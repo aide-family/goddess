@@ -18,6 +18,7 @@ middlewares:
         - GET
         - POST
         - OPTIONS
+  - name: streamrecorder
 endpoints:
   - path: /helloworld/*
     timeout: 1s
@@ -52,3 +53,9 @@ endpoints:
         - byHeader:
             name: 'Grpc-Status'
             value: '14'
+  - path: /ws
+    timeout: 10s
+    protocol: HTTP
+    backends:
+      - target: '127.0.0.1:18080'
+    stream: true
