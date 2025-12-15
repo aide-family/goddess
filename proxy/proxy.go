@@ -12,7 +12,6 @@ import (
 	"net/http/httputil"
 	"os"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -26,156 +25,70 @@ import (
 	"github.com/go-kratos/gateway/router/mux"
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/go-kratos/kratos/v2/selector"
-	"github.com/go-kratos/kratos/v2/transport/http/status"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
-var (
-	_metricRequestsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "go",
-		Subsystem: "gateway",
-		Name:      "requests_code_total",
-		Help:      "The total number of processed requests",
-	}, []string{"protocol", "method", "path", "code", "service", "basePath"})
-	_metricRequestsDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Namespace: "go",
-		Subsystem: "gateway",
-		Name:      "requests_duration_seconds",
-		Help:      "Requests duration(sec).",
-		Buckets:   []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1},
-	}, []string{"protocol", "method", "path", "service", "basePath"})
-	_metricSentBytes = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "go",
-		Subsystem: "gateway",
-		Name:      "requests_tx_bytes",
-		Help:      "Total sent connection bytes",
-	}, []string{"protocol", "method", "path", "service", "basePath"})
-	_metricReceivedBytes = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "go",
-		Subsystem: "gateway",
-		Name:      "requests_rx_bytes",
-		Help:      "Total received connection bytes",
-	}, []string{"protocol", "method", "path", "service", "basePath"})
-	_metricRetryState = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "go",
-		Subsystem: "gateway",
-		Name:      "requests_retry_state",
-		Help:      "Total request retries",
-	}, []string{"protocol", "method", "path", "service", "basePath", "success"})
-)
+// Option is proxy option.
+type Option func(*Proxy)
 
-func init() {
-	prometheus.MustRegister(_metricRequestsTotal)
-	prometheus.MustRegister(_metricRequestsDuration)
-	prometheus.MustRegister(_metricRetryState)
-	prometheus.MustRegister(_metricSentBytes)
-	prometheus.MustRegister(_metricReceivedBytes)
-}
-
-func setXFFHeader(req *http.Request) {
-	// see https://github.com/golang/go/blob/master/src/net/http/httputil/reverseproxy.go
-	if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
-		// If we aren't the first proxy retain prior
-		// X-Forwarded-For information as a comma+space
-		// separated list and fold multiple headers into one.
-		prior, ok := req.Header["X-Forwarded-For"]
-		omit := ok && prior == nil // Issue 38079: nil now means don't populate the header
-		if len(prior) > 0 {
-			clientIP = strings.Join(prior, ", ") + ", " + clientIP
-		}
-		if !omit {
-			req.Header.Set("X-Forwarded-For", clientIP)
-		}
+// WithObservable set observable option.
+func WithObservable(o Observable) Option {
+	return func(p *Proxy) {
+		p.observable = o
 	}
 }
 
-func writeError(w http.ResponseWriter, r *http.Request, err error, labels middleware.MetricsLabels) {
-	var statusCode int
-	switch {
-	case errors.Is(err, context.Canceled),
-		err.Error() == "client disconnected":
-		statusCode = 499
-	case errors.Is(err, context.DeadlineExceeded):
-		statusCode = 504
-	default:
-		log.Errorf("Failed to handle request: %s: %+v", r.URL.String(), err)
-		statusCode = 502
-	}
-	requestsTotalIncr(r, labels, statusCode)
-	if labels.Protocol() == config.Protocol_GRPC.String() {
-		// see https://github.com/googleapis/googleapis/blob/master/google/rpc/code.proto
-		code := strconv.Itoa(int(status.ToGRPCCode(statusCode)))
-		w.Header().Set("Content-Type", "application/grpc")
-		w.Header().Set("Grpc-Status", code)
-		w.Header().Set("Grpc-Message", err.Error())
-		statusCode = 200
-	}
-	w.WriteHeader(statusCode)
-}
-
-// notFoundHandler replies to the request with an HTTP 404 not found error.
-func notFoundHandler(w http.ResponseWriter, r *http.Request) {
-	code := http.StatusNotFound
-	message := "404 page not found"
-	http.Error(w, message, code)
-	log.Context(r.Context()).Errorw(
-		"source", "accesslog",
-		"host", r.Host,
-		"method", r.Method,
-		"path", r.URL.Path,
-		"query", r.URL.RawQuery,
-		"user_agent", r.Header.Get("User-Agent"),
-		"code", code,
-		"error", message,
-	)
-	_metricRequestsTotal.WithLabelValues("HTTP", r.Method, "/404", strconv.Itoa(code), "", "").Inc()
-}
-
-func methodNotAllowedHandler(w http.ResponseWriter, r *http.Request) {
-	code := http.StatusMethodNotAllowed
-	message := http.StatusText(code)
-	http.Error(w, message, code)
-	log.Context(r.Context()).Errorw(
-		"source", "accesslog",
-		"host", r.Host,
-		"method", r.Method,
-		"path", r.URL.Path,
-		"query", r.URL.RawQuery,
-		"user_agent", r.Header.Get("User-Agent"),
-		"code", code,
-		"error", message,
-	)
-	_metricRequestsTotal.WithLabelValues("HTTP", r.Method, "/405", strconv.Itoa(code), "", "").Inc()
-}
-
-type interceptors struct {
-	prepareAttemptTimeoutContext func(ctx context.Context, req *http.Request, timeout time.Duration) (context.Context, context.CancelFunc)
-}
-
-func (i *interceptors) SetPrepareAttemptTimeoutContext(f func(ctx context.Context, req *http.Request, timeout time.Duration) (context.Context, context.CancelFunc)) {
-	if f != nil {
-		i.prepareAttemptTimeoutContext = f
+// WithNotFoundHandler set not found handler option.
+func WithNotFoundHandler(h http.Handler) Option {
+	return func(p *Proxy) {
+		p.notFoundHandler = h
 	}
 }
+
+// WithMethodNotAllowedHandler set method not allowed handler option.
+func WithMethodNotAllowedHandler(h http.Handler) Option {
+	return func(p *Proxy) {
+		p.methodNotAllowedHandler = h
+	}
+}
+
+// WithAttemptTimeoutContext set attempt timeout context option.
+func WithAttemptTimeoutContext(f AttemptTimeoutContext) Option {
+	return func(p *Proxy) {
+		p.prepareAttemptTimeoutContext = f
+	}
+}
+
+// AttemptTimeoutContext is a function type that prepares a context with timeout for an HTTP request.
+type AttemptTimeoutContext func(ctx context.Context, req *http.Request, timeout time.Duration) (context.Context, context.CancelFunc)
 
 // Proxy is a gateway proxy.
 type Proxy struct {
-	router            atomic.Value
-	clientFactory     client.Factory
-	Interceptors      interceptors
-	middlewareFactory middleware.FactoryV2
+	router                       atomic.Value
+	clientFactory                client.Factory
+	middlewareFactory            middleware.FactoryV2
+	observable                   Observable
+	notFoundHandler              http.Handler
+	methodNotAllowedHandler      http.Handler
+	prepareAttemptTimeoutContext AttemptTimeoutContext
 }
 
 // New is new a gateway proxy.
-func New(clientFactory client.Factory, middlewareFactory middleware.FactoryV2) (*Proxy, error) {
+func New(clientFactory client.Factory, middlewareFactory middleware.FactoryV2, opts ...Option) (*Proxy, error) {
 	p := &Proxy{
-		clientFactory:     clientFactory,
-		middlewareFactory: middlewareFactory,
-		Interceptors: interceptors{
-			prepareAttemptTimeoutContext: defaultAttemptTimeoutContext,
-		},
+		clientFactory:                clientFactory,
+		middlewareFactory:            middlewareFactory,
+		prepareAttemptTimeoutContext: defaultAttemptTimeoutContext,
+		notFoundHandler:              http.HandlerFunc(notFoundHandler),
+		methodNotAllowedHandler:      http.HandlerFunc(methodNotAllowedHandler),
 	}
-	p.router.Store(mux.NewRouter(http.HandlerFunc(notFoundHandler), http.HandlerFunc(methodNotAllowedHandler)))
+	for _, opt := range opts {
+		opt(p)
+	}
+	// if no observer is provided, create a default one and register metrics
+	if p.observable == nil {
+		p.observable = NewObservable()
+	}
+	p.router.Store(mux.NewRouter(p.notFoundHandler, p.methodNotAllowedHandler))
 	return p, nil
 }
 
@@ -192,33 +105,6 @@ func (p *Proxy) buildMiddleware(ms []*config.Middleware, next http.RoundTripper)
 		next = m.Process(next)
 	}
 	return next, nil
-}
-
-func splitRetryMetricsHandler(e *config.Endpoint) (func(*http.Request, int), func(*http.Request, int, error), func(*http.Request, int)) {
-	labels := middleware.NewMetricsLabels(e)
-	success := func(req *http.Request, i int) {
-		if i <= 0 {
-			return
-		}
-		retryStateIncr(req, labels, "true")
-	}
-	failed := func(req *http.Request, i int, err error) {
-		if i <= 0 {
-			return
-		}
-		if errors.Is(err, context.Canceled) {
-			return
-		}
-		retryStateIncr(req, labels, "false")
-	}
-	breaker := func(req *http.Request, i int) {
-		if i <= 0 {
-			return
-		}
-		retryStateIncr(req, labels, "breaker")
-	}
-
-	return success, failed, breaker
 }
 
 func (p *Proxy) buildEndpoint(buildCtx *client.BuildContext, e *config.Endpoint, ms []*config.Middleware) (_ http.Handler, _ io.Closer, retError error) {
@@ -245,23 +131,23 @@ func (p *Proxy) buildEndpoint(buildCtx *client.BuildContext, e *config.Endpoint,
 	if err != nil {
 		return nil, nil, err
 	}
-	labels := middleware.NewMetricsLabels(e)
-	markSuccessStat, markFailedStat, markBreakerStat := splitRetryMetricsHandler(e)
+	observer := p.observable.Observe(e)
+	markSuccessStat, markFailedStat, markBreakerStat := splitRetryMetricsHandler(observer)
 	retryBreaker := sre.NewBreaker(sre.WithSuccess(0.8), sre.WithRequest(10))
-	markSuccess := func(req *http.Request, i int) {
-		markSuccessStat(req, i)
+	markSuccess := func(w http.ResponseWriter, req *http.Request, i int) {
+		markSuccessStat(w, req, i)
 		if i > 0 {
 			retryBreaker.MarkSuccess()
 		}
 	}
-	markFailed := func(req *http.Request, i int, err error) {
-		markFailedStat(req, i, err)
+	markFailed := func(w http.ResponseWriter, req *http.Request, i int, err error) {
+		markFailedStat(w, req, i, err)
 		if i > 0 {
 			retryBreaker.MarkFailed()
 		}
 	}
-	markBreaker := func(req *http.Request, i int) {
-		markBreakerStat(req, i)
+	markBreaker := func(w http.ResponseWriter, req *http.Request, i int) {
+		markBreakerStat(w, req, i)
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		startTime := time.Now()
@@ -272,7 +158,7 @@ func (p *Proxy) buildEndpoint(buildCtx *client.BuildContext, e *config.Endpoint,
 		ctx, cancel := context.WithTimeout(ctx, retryStrategy.timeout)
 		defer cancel()
 		defer func() {
-			requestsDurationObserve(req, labels, time.Since(startTime).Seconds())
+			observer.HandleLatency(req, time.Since(startTime))
 		}()
 
 		proxyStream := func() {
@@ -286,14 +172,14 @@ func (p *Proxy) buildEndpoint(buildCtx *client.BuildContext, e *config.Endpoint,
 				Rewrite: func(proxyRequest *httputil.ProxyRequest) {},
 				ErrorHandler: func(w http.ResponseWriter, req *http.Request, err error) {
 					reqOpts.DoneFunc(ctx, selector.DoneInfo{Err: err})
-					markFailed(req, 0, err)
-					writeError(w, req, err, labels)
+					markFailed(w, req, 0, err)
+					writeError(w, req, e, err, observer)
 				},
 				ModifyResponse: func(resp *http.Response) error {
 					defer streamCtx.DoOnResponse()
 					reqOpts.DoneFunc(ctx, selector.DoneInfo{ReplyMD: getReplyMD(e, resp)})
-					markSuccess(req, 0)
-					requestsTotalIncr(req, labels, resp.StatusCode)
+					markSuccess(w, req, 0)
+					observer.HandleRequest(req, w.Header(), resp.StatusCode, nil)
 					return nil
 				},
 				Transport:     tripper,
@@ -308,10 +194,10 @@ func (p *Proxy) buildEndpoint(buildCtx *client.BuildContext, e *config.Endpoint,
 
 		body, err := io.ReadAll(req.Body)
 		if err != nil {
-			writeError(w, req, err, labels)
+			writeError(w, req, e, err, observer)
 			return
 		}
-		receivedBytesAdd(req, labels, int64(len(body)))
+		observer.HandleReceivedBytes(req, int64(len(body)))
 		req.GetBody = func() (io.ReadCloser, error) {
 			reader := bytes.NewReader(body)
 			return io.NopCloser(reader), nil
@@ -325,9 +211,9 @@ func (p *Proxy) buildEndpoint(buildCtx *client.BuildContext, e *config.Endpoint,
 				}
 				if err := retryBreaker.Allow(); err != nil {
 					if errors.Is(err, circuitbreaker.ErrNotAllowed) {
-						markBreaker(req, i)
+						markBreaker(w, req, i)
 					} else {
-						markFailed(req, i, err)
+						markFailed(w, req, i, err)
 					}
 					break
 				}
@@ -338,30 +224,30 @@ func (p *Proxy) buildEndpoint(buildCtx *client.BuildContext, e *config.Endpoint,
 			}
 			// canceled or deadline exceeded
 			if err = ctx.Err(); err != nil {
-				markFailed(req, i, err)
+				markFailed(w, req, i, err)
 				break
 			}
-			tryCtx, cancel := p.Interceptors.prepareAttemptTimeoutContext(ctx, req, retryStrategy.perTryTimeout)
+			tryCtx, cancel := p.prepareAttemptTimeoutContext(ctx, req, retryStrategy.perTryTimeout)
 			defer cancel()
 			reader := bytes.NewReader(body)
 			req.Body = io.NopCloser(reader)
 			resp, err = tripper.RoundTrip(req.Clone(tryCtx))
 			if err != nil {
-				markFailed(req, i, err)
+				markFailed(w, req, i, err)
 				log.Errorf("Attempt at [%d/%d], failed to handle request: %s: %+v", i+1, retryStrategy.attempts, req.URL.String(), err)
 				continue
 			}
 			if !judgeRetryRequired(retryStrategy.conditions, resp) {
 				reqOpts.LastAttempt = true
-				markSuccess(req, i)
+				markSuccess(w, req, i)
 				break
 			}
-			markFailed(req, i, errors.New("assertion failed"))
+			markFailed(w, req, i, errors.New("assertion failed"))
 			resp.Body.Close()
 			// continue the retry loop
 		}
 		if err != nil {
-			writeError(w, req, err, labels)
+			writeError(w, req, e, err, observer)
 			return
 		}
 
@@ -381,9 +267,9 @@ func (p *Proxy) buildEndpoint(buildCtx *client.BuildContext, e *config.Endpoint,
 			}
 		}
 
-		doCopyBody := func() bool {
+		doCopyBody := func() (bool, error) {
 			if resp.Body == nil {
-				return true
+				return true, nil
 			}
 			defer resp.Body.Close()
 
@@ -393,56 +279,22 @@ func (p *Proxy) buildEndpoint(buildCtx *client.BuildContext, e *config.Endpoint,
 			}
 			sent, err := copyFunc(w, resp.Body)
 			if err != nil {
+				observer.HandleSentBytes(req, sent)
 				reqOpts.DoneFunc(ctx, selector.DoneInfo{Err: err})
-				sentBytesAdd(req, labels, sent)
 				log.Errorf("Failed to copy backend response body to client: [%s] %s %s %d %+v\n", e.Protocol, e.Method, e.Path, sent, err)
-				return false
+				return false, err
 			}
-			sentBytesAdd(req, labels, sent)
+			observer.HandleSentBytes(req, sent)
 			reqOpts.DoneFunc(ctx, selector.DoneInfo{ReplyMD: getReplyMD(e, resp)})
 			// see https://pkg.go.dev/net/http#example-ResponseWriter-Trailers
 			for k, v := range resp.Trailer {
 				headers[http.TrailerPrefix+k] = v
 			}
-			return true
+			return true, nil
 		}
-		doCopyBody()
-		requestsTotalIncr(req, labels, resp.StatusCode)
+		_, err = doCopyBody()
+		observer.HandleRequest(req, headers, resp.StatusCode, err)
 	}), closer, nil
-}
-
-func getReplyMD(ep *config.Endpoint, resp *http.Response) selector.ReplyMD {
-	if ep.Protocol == config.Protocol_GRPC {
-		return resp.Trailer
-	}
-	return resp.Header
-}
-
-func receivedBytesAdd(req *http.Request, labels middleware.MetricsLabels, received int64) {
-	_metricReceivedBytes.WithLabelValues(labels.Protocol(), req.Method, labels.Path(), labels.Service(), labels.BasePath()).Add(float64(received))
-}
-
-func sentBytesAdd(req *http.Request, labels middleware.MetricsLabels, sent int64) {
-	_metricSentBytes.WithLabelValues(labels.Protocol(), req.Method, labels.Path(), labels.Service(), labels.BasePath()).Add(float64(sent))
-}
-
-func requestsTotalIncr(req *http.Request, labels middleware.MetricsLabels, statusCode int) {
-	_metricRequestsTotal.WithLabelValues(labels.Protocol(), req.Method, labels.Path(), strconv.Itoa(statusCode), labels.Service(), labels.BasePath()).Inc()
-}
-
-func requestsDurationObserve(req *http.Request, labels middleware.MetricsLabels, seconds float64) {
-	_metricRequestsDuration.WithLabelValues(labels.Protocol(), req.Method, labels.Path(), labels.Service(), labels.BasePath()).Observe(seconds)
-}
-
-func retryStateIncr(req *http.Request, labels middleware.MetricsLabels, state string) {
-	_metricRetryState.WithLabelValues(labels.Protocol(), req.Method, labels.Path(), labels.Service(), labels.BasePath(), state).Inc()
-}
-
-func closeOnError(closer io.Closer, err *error) {
-	if *err == nil {
-		return
-	}
-	closer.Close()
 }
 
 // Update updates service endpoint.
@@ -462,21 +314,6 @@ func (p *Proxy) Update(buildContext *client.BuildContext, c *config.Gateway) (re
 	old := p.router.Swap(router)
 	tryCloseRouter(old)
 	return nil
-}
-
-func tryCloseRouter(in interface{}) {
-	if in == nil {
-		return
-	}
-	r, ok := in.(router.Router)
-	if !ok {
-		return
-	}
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
-		defer cancel()
-		r.SyncClose(ctx)
-	}()
 }
 
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -508,6 +345,61 @@ func (p *Proxy) DebugHandler() http.Handler {
 		json.NewEncoder(rw).Encode(inspect)
 	})
 	return debugMux
+}
+
+func getReplyMD(ep *config.Endpoint, resp *http.Response) selector.ReplyMD {
+	if ep.Protocol == config.Protocol_GRPC {
+		return resp.Trailer
+	}
+	return resp.Header
+}
+
+func closeOnError(closer io.Closer, err *error) {
+	if *err == nil {
+		return
+	}
+	closer.Close()
+}
+
+func tryCloseRouter(in interface{}) {
+	if in == nil {
+		return
+	}
+	r, ok := in.(router.Router)
+	if !ok {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+		defer cancel()
+		r.SyncClose(ctx)
+	}()
+}
+func splitRetryMetricsHandler(observer Observer) (
+	func(http.ResponseWriter, *http.Request, int), func(http.ResponseWriter, *http.Request, int, error), func(http.ResponseWriter, *http.Request, int)) {
+	// success marks a successful retry attempt
+	success := func(w http.ResponseWriter, req *http.Request, i int) {
+		if i <= 0 {
+			return
+		}
+		observer.HandleRetry(req, w.Header(), "true")
+	}
+	failed := func(w http.ResponseWriter, req *http.Request, i int, err error) {
+		if i <= 0 {
+			return
+		}
+		if errors.Is(err, context.Canceled) {
+			return
+		}
+		observer.HandleRetry(req, w.Header(), "false")
+	}
+	breaker := func(w http.ResponseWriter, req *http.Request, i int) {
+		if i <= 0 {
+			return
+		}
+		observer.HandleRetry(req, w.Header(), "breaker")
+	}
+	return success, failed, breaker
 }
 
 func isWebSocketRequest(r *http.Request) bool {
@@ -570,4 +462,21 @@ func builtinStreamTripper(tripper http.RoundTripper) http.RoundTripper {
 		wrapStreamResponseBody(resp, streamCtx)
 		return resp, nil
 	})
+}
+
+func setXFFHeader(req *http.Request) {
+	// see https://github.com/golang/go/blob/master/src/net/http/httputil/reverseproxy.go
+	if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
+		// If we aren't the first proxy retain prior
+		// X-Forwarded-For information as a comma+space
+		// separated list and fold multiple headers into one.
+		prior, ok := req.Header["X-Forwarded-For"]
+		omit := ok && prior == nil // Issue 38079: nil now means don't populate the header
+		if len(prior) > 0 {
+			clientIP = strings.Join(prior, ", ") + ", " + clientIP
+		}
+		if !omit {
+			req.Header.Set("X-Forwarded-For", clientIP)
+		}
+	}
 }
