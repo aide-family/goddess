@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+package goddess.config.v1;
+
+option go_package = "github.com/aide-family/goddess/pkg/config/v1";
+
+import "google/protobuf/any.proto";
+import "google/protobuf/duration.proto";
+
+
+message ClientConfig {
+	ClusterConfig cluster = 1;
+	string jwtToken = 2;
+	ReportConfig report = 3;
+	string namespace = 4;
+}
+
+message ClusterConfig {
+	enum Protocol {
+		PROTOCOL_UNKNOWN = 0;
+		GRPC = 1;
+		HTTP = 2;
+	}
+	string name = 1;
+	string endpoints = 2;
+	google.protobuf.Duration timeout = 3;
+	Protocol protocol = 4;
+}
+
+
+message ORMConfig {
+	enum Dialector {
+		TYPE_UNKNOWN = 0;
+		MYSQL = 1;
+		SQLITE = 2;
+	}
+	Dialector dialector = 1;
+	google.protobuf.Any options = 2;
+	string debug = 3;
+	string useSystemLogger = 4;
+}
+
+message MySQLOptions {
+	string username = 1;
+	string password = 2;
+	string host     = 3;
+	int32 port     = 4;
+	string database = 5;
+	map<string, string> parameters = 6;
+}
+
+message SQLiteOptions {
+	string dsn = 1;
+}
+
+message ReportConfig {
+	enum ReportType {
+		REPORT_TYPE_UNKNOWN = 0;
+		ETCD = 1;
+		KUBERNETES = 2;
+	}
+	ReportType reportType = 1;
+	google.protobuf.Any options = 2;
+	string namespace = 3;
+}
+
+message ETCDOptions {
+	string endpoints = 1;
+	string username = 2;
+	string password = 3;
+	google.protobuf.Duration dialTimeout = 4;
+}
+
+message KubernetesOptions {
+	string kubeConfig = 1;
+}
+
+message BasicAuthConfig {
+	string username = 1;
+	string password = 2;
+	string enabled = 3;
+}

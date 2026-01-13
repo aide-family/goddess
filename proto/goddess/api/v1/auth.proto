@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package goddess.api.v1;
+
+import "google/api/annotations.proto";
+
+option go_package = "github.com/aide-family/goddess/pkg/api/v1;v1";
+option java_multiple_files = true;
+option java_package = "goddess.api.v1";
+
+service Auth {
+	rpc Logout (LogoutRequest) returns (LogoutReply) {
+		option (google.api.http) = {
+			delete: "/v1/auth/logout"
+		};
+	}
+	rpc RefreshToken (RefreshTokenRequest) returns (RefreshTokenReply) {
+		option (google.api.http) = {
+			post: "/v1/auth/refresh"
+			body: "*"
+		};
+	}
+}
+
+message LogoutRequest {}
+message LogoutReply {}
+
+message RefreshTokenRequest {
+}
+message RefreshTokenReply {
+	string token = 1;
+}

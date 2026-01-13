@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	config "github.com/go-kratos/gateway/api/gateway/config/v1"
+	config "github.com/aide-family/goddess/pkg/config/v1"
 )
 
 type Condition interface {

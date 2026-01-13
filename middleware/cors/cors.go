@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	config "github.com/go-kratos/gateway/api/gateway/config/v1"
-	v1 "github.com/go-kratos/gateway/api/gateway/middleware/cors/v1"
-	"github.com/go-kratos/gateway/middleware"
+	"github.com/aide-family/goddess/middleware"
+	config "github.com/aide-family/goddess/pkg/config/v1"
+	v1 "github.com/aide-family/goddess/pkg/middleware/cors/v1"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"

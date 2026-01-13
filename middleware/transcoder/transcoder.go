@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	config "github.com/go-kratos/gateway/api/gateway/config/v1"
-	"github.com/go-kratos/gateway/middleware"
+	"github.com/aide-family/goddess/middleware"
+	config "github.com/aide-family/goddess/pkg/config/v1"
 	spb "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"

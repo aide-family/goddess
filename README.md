@@ -1,5 +1,5 @@
 # Gateway
-[![Build Status](https://github.com/go-kratos/gateway/actions/workflows/go.yml/badge.svg?branch=main)](https://github.com/go-kratos/gateway/actions/workflows/go.yml)
+[![Build Status](https://github.com/aide-family/goddess/actions/workflows/go.yml/badge.svg?branch=main)](https://github.com/aide-family/goddess/actions/workflows/go.yml)
 [![codecov](https://codecov.io/gh/go-kratos/gateway/branch/main/graph/badge.svg)](https://codecov.io/gh/go-kratos/gateway)
 
 HTTP -> Proxy -> Router -> Middleware -> Client -> Selector -> Node

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync/atomic"
 
-	config "github.com/go-kratos/gateway/api/gateway/config/v1"
+	config "github.com/aide-family/goddess/pkg/config/v1"
 
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/go-kratos/kratos/v2/registry"
@@ -25,10 +25,12 @@ type BuildContext struct {
 // Factory is returns service client.
 type Factory func(*BuildContext, *config.Endpoint) (Client, error)
 
-type Option func(*options)
-type options struct {
-	pickerBuilder selector.Builder
-}
+type (
+	Option  func(*options)
+	options struct {
+		pickerBuilder selector.Builder
+	}
+)
 
 func WithPickerBuilder(in selector.Builder) Option {
 	return func(o *options) {

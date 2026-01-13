@@ -16,13 +16,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/aide-family/goddess/client"
+	"github.com/aide-family/goddess/middleware"
+	config "github.com/aide-family/goddess/pkg/config/v1"
+	"github.com/aide-family/goddess/router"
+	"github.com/aide-family/goddess/router/mux"
 	"github.com/go-kratos/aegis/circuitbreaker"
 	"github.com/go-kratos/aegis/circuitbreaker/sre"
-	config "github.com/go-kratos/gateway/api/gateway/config/v1"
-	"github.com/go-kratos/gateway/client"
-	"github.com/go-kratos/gateway/middleware"
-	"github.com/go-kratos/gateway/router"
-	"github.com/go-kratos/gateway/router/mux"
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/go-kratos/kratos/v2/selector"
 )
@@ -375,8 +375,10 @@ func tryCloseRouter(in interface{}) {
 		r.SyncClose(ctx)
 	}()
 }
+
 func splitRetryMetricsHandler(observer Observer) (
-	func(http.ResponseWriter, *http.Request, int), func(http.ResponseWriter, *http.Request, int, error), func(http.ResponseWriter, *http.Request, int)) {
+	func(http.ResponseWriter, *http.Request, int), func(http.ResponseWriter, *http.Request, int, error), func(http.ResponseWriter, *http.Request, int),
+) {
 	// success marks a successful retry attempt
 	success := func(w http.ResponseWriter, req *http.Request, i int) {
 		if i <= 0 {

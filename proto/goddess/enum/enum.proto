@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package goddess.enum;
+
+option go_package = "github.com/aide-family/goddess/pkg/enum";
+option java_multiple_files = true;
+option java_package = "goddess.enum";
+
+enum Environment {
+	UNKNOWN = 0;
+	DEV = 1;
+	TEST = 2;
+	PREVIEW = 3;
+	PROD = 4;
+}
+
+enum GlobalStatus {
+	GlobalStatus_UNKNOWN = 0;
+	ENABLED = 1;
+	DISABLED = 2;
+}
+
+enum UserStatus {
+	UserStatus_UNKNOWN = 0;
+	VALID = 1;
+	FORBIDDEN = 2;
+	WRITTEN_OFF = 3;
+}
+
+enum MemberStatus {
+	MemberStatus_UNKNOWN = 0;
+	ON_JOB = 1;
+	BAN = 2;
+	WAITING_JOIN = 3;
+	TERMINATED = 4;
+}

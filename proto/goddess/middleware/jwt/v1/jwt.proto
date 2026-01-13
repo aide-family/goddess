@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package goddess.middleware.jwt.v1;
+
+option go_package = "github.com/aide-family/goddess/pkg/middleware/jwt/v1";
+
+import "google/protobuf/duration.proto";
+
+// Jwt middleware config.
+message Jwt {
+    string secret = 1;
+    google.protobuf.Duration expireTime = 2;
+    string issuer = 3;
+    repeated string algorithms = 4;
+}

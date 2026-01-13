@@ -5,8 +5,8 @@ import (
 	"io"
 	"net/http"
 
-	configv1 "github.com/go-kratos/gateway/api/gateway/config/v1"
-	"github.com/go-kratos/gateway/middleware"
+	"github.com/aide-family/goddess/middleware"
+	configv1 "github.com/aide-family/goddess/pkg/config/v1"
 )
 
 func init() {
@@ -25,11 +25,13 @@ func NewMetaStreamRecorder() *MetaStreamRecorder {
 	return &MetaStreamRecorder{}
 }
 
-type streamRecorderKey struct{}
-type StreamRecorder struct {
-	Request  []*middleware.MetaStreamChunk
-	Response []*middleware.MetaStreamChunk
-}
+type (
+	streamRecorderKey struct{}
+	StreamRecorder    struct {
+		Request  []*middleware.MetaStreamChunk
+		Response []*middleware.MetaStreamChunk
+	}
+)
 
 func (s *StreamRecorder) Mix() *streamReaderSeeker {
 	mixed := make([]*middleware.MetaStreamChunk, 0, len(s.Request)+len(s.Response))

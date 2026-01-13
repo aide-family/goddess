@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package goddess.middleware.logging.v1;
+
+option go_package = "github.com/aide-family/goddess/pkg/middleware/logging/v1";
+
+// logging middleware config.
+message Logging {}

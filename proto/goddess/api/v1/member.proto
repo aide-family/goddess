@@ -1,0 +1,133 @@
+syntax = "proto3";
+
+package goddess.api.v1;
+
+import "google/api/annotations.proto";
+import "buf/validate/validate.proto";
+import "enum/enum.proto";
+
+option go_package = "github.com/aide-family/goddess/pkg/api/v1;v1";
+option java_multiple_files = true;
+option java_package = "goddess.api.v1";
+
+service Member {
+	rpc InviteMemberFromEmail (InviteMemberFromEmailRequest) returns (InviteMemberReply) {
+		option (google.api.http) = {
+			post: "/v1/member/invite/email"
+			body: "*"
+		};
+	}
+	rpc InviteMemberFromPhone (InviteMemberFromPhoneRequest) returns (InviteMemberReply) {
+		option (google.api.http) = {
+			post: "/v1/member/invite/phone"
+			body: "*"
+		};
+	}
+	rpc TerminateMember (TerminateMemberRequest) returns (TerminateMemberReply) {
+		option (google.api.http) = {
+			delete: "/v1/member/terminate/{uid}"
+		};
+	}
+	rpc UpdateMemberStatus (UpdateMemberStatusRequest) returns (UpdateMemberStatusReply) {
+		option (google.api.http) = {
+			put: "/v1/member/{uid}/status"
+			body: "*"
+		};
+	}
+	rpc GetMember (GetMemberRequest) returns (MemberItem) {
+		option (google.api.http) = {
+			get: "/v1/member/{uid}"
+		};
+	}
+	rpc ListMember (ListMemberRequest) returns (ListMemberReply) {
+		option (google.api.http) = {
+			get: "/v1/members"
+		};
+	}
+	rpc SelectMember (SelectMemberRequest) returns (SelectMemberReply) {
+		option (google.api.http) = {
+			get: "/v1/members/select"
+		};
+	}
+}
+
+message MemberItem {
+	int64 uid = 1;
+	int64 namespaceUID = 2;
+	int64 userUID = 3;
+	string name = 4;
+	string email = 5;
+	string phone = 6;
+	string avatar = 7;
+	string createdAt = 8;
+	string updatedAt = 9;
+	goddess.enum.MemberStatus status = 10;
+}
+
+message InviteMemberFromEmailRequest {
+	string email = 1 [(buf.validate.field).required = true];
+}
+message InviteMemberFromPhoneRequest {
+	string phone = 1 [(buf.validate.field).required = true];
+}
+message InviteMemberReply {}
+
+message TerminateMemberRequest {
+	int64 uid = 1 [(buf.validate.field).required = true];
+}
+message TerminateMemberReply {}
+
+message UpdateMemberStatusRequest {
+	int64 uid = 1 [(buf.validate.field).required = true];
+	goddess.enum.MemberStatus status = 2 [(buf.validate.field).required = true, (buf.validate.field).cel = {
+		expression: "this in [goddess.enum.MemberStatus.VALID, goddess.enum.MemberStatus.FORBIDDEN, goddess.enum.MemberStatus.WRITTEN_OFF]",
+		message: "status must be in ['VALID', 'FORBIDDEN', 'WRITTEN_OFF']",
+	}];
+}
+message UpdateMemberStatusReply {}
+
+message GetMemberRequest {
+	int64 uid = 1 [(buf.validate.field).required = true];
+}
+
+message ListMemberRequest {
+	int32 page = 1 [(buf.validate.field).required = true, (buf.validate.field).cel = {
+		expression: "this >= 1",
+		message: "page must be greater than or equal to 1",
+	}];
+	int32 pageSize = 2 [(buf.validate.field).required = true, (buf.validate.field).cel = {
+		expression: "this >= 1 && this <= 200",
+		message: "pageSize must be greater than or equal to 1 and less than or equal to 200",
+	}];
+	string keyword = 3 [(buf.validate.field).cel = {
+		expression: "this.size() <= 200",
+		message: "keyword must be less than or equal to 200",
+	}];
+	goddess.enum.MemberStatus status = 4;
+}
+
+message ListMemberReply {
+	int64 total = 1;
+	int32 page = 2;
+	int32 pageSize = 3;
+	repeated MemberItem items = 4;
+}
+
+message SelectMemberRequest {
+	string keyword = 1 [(buf.validate.field).cel = {
+		expression: "this.size() <= 200",
+		message: "keyword must be less than or equal to 200",
+	}];
+	int32 limit = 2 [(buf.validate.field).required = true, (buf.validate.field).cel = {
+		expression: "this >= 1 && this <= 100",
+		message: "limit must be greater than or equal to 1 and less than or equal to 100",
+	}];
+	int64 lastUID = 3;
+	goddess.enum.MemberStatus status = 4;
+}
+message SelectMemberReply {
+	repeated MemberItem items = 1;
+	int64 total = 2;
+	int64 lastUID = 3;
+	bool hasMore = 4;
+}

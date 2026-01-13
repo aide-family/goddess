@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package goddess.api.v1;
+
+import "google/api/annotations.proto";
+import "buf/validate/validate.proto";
+
+option go_package = "github.com/aide-family/goddess/pkg/api/v1;v1";
+option java_multiple_files = true;
+option java_package = "goddess.api.v1";
+
+service Login {
+	rpc LoginFromEmail (LoginFromEmailRequest) returns (LoginReply) {
+		option (google.api.http) = {
+			post: "/v1/login/email"
+			body: "*"
+		};
+	}
+	rpc LoginFromPhone (LoginFromPhoneRequest) returns (LoginReply) {
+		option (google.api.http) = {
+			post: "/v1/login/phone"
+			body: "*"
+		};
+	}
+	rpc LoginFromOAuth2 (LoginFromOAuth2Request) returns (LoginReply) {
+		option (google.api.http) = {
+			post: "/v1/login/oauth2"
+			body: "*"
+		};
+	}
+}
+
+message LoginFromEmailRequest {
+	string email = 1 [(buf.validate.field).required = true];
+	string password = 2 [(buf.validate.field).required = true];
+}
+message LoginFromPhoneRequest {
+	string phone = 1 [(buf.validate.field).required = true];
+	string password = 2 [(buf.validate.field).required = true];
+}
+message LoginFromOAuth2Request {
+	string code = 1 [(buf.validate.field).required = true];
+	string state = 2 [(buf.validate.field).required = true];
+}
+message LoginReply {
+	string token = 1;
+}
+

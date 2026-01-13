@@ -5,10 +5,10 @@ import (
 	"path"
 	"strings"
 
-	config "github.com/go-kratos/gateway/api/gateway/config/v1"
-	v1 "github.com/go-kratos/gateway/api/gateway/middleware/rewrite/v1"
+	config "github.com/aide-family/goddess/pkg/config/v1"
+	v1 "github.com/aide-family/goddess/pkg/middleware/rewrite/v1"
 
-	"github.com/go-kratos/gateway/middleware"
+	"github.com/aide-family/goddess/middleware"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
@@ -57,7 +57,6 @@ func Middleware(c *config.Middleware) (middleware.Middleware, error) {
 				}
 				for _, value := range requestHeadersRewrite.Remove {
 					req.Header.Del(value)
-
 				}
 			}
 			resp, err := next.RoundTrip(req)
@@ -73,7 +72,6 @@ func Middleware(c *config.Middleware) (middleware.Middleware, error) {
 				}
 				for _, value := range responseHeadersRewrite.Remove {
 					resp.Header.Del(value)
-
 				}
 			}
 			return resp, nil

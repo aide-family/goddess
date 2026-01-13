@@ -13,17 +13,21 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/net/http2"
 
-	config "github.com/go-kratos/gateway/api/gateway/config/v1"
-	"github.com/go-kratos/gateway/middleware"
+	"github.com/aide-family/goddess/middleware"
+	config "github.com/aide-family/goddess/pkg/config/v1"
 )
 
-var _ selector.Node = &node{}
-var _dialTimeout = 200 * time.Millisecond
-var followRedirect = false
+var (
+	_              selector.Node = &node{}
+	_dialTimeout                 = 200 * time.Millisecond
+	followRedirect               = false
+)
 
-var _globalClient *http.Client = nil
-var _globalH2CClient *http.Client = nil
-var _globalHTTPSClient *http.Client = nil
+var (
+	_globalClient      *http.Client = nil
+	_globalH2CClient   *http.Client = nil
+	_globalHTTPSClient *http.Client = nil
+)
 
 func init() {
 	var err error

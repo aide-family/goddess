@@ -8,13 +8,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/aide-family/goddess/client"
+	"github.com/aide-family/goddess/middleware"
+	config "github.com/aide-family/goddess/pkg/config/v1"
+	v1 "github.com/aide-family/goddess/pkg/middleware/circuitbreaker/v1"
+	"github.com/aide-family/goddess/proxy/condition"
 	"github.com/go-kratos/aegis/circuitbreaker"
 	"github.com/go-kratos/aegis/circuitbreaker/sre"
-	config "github.com/go-kratos/gateway/api/gateway/config/v1"
-	v1 "github.com/go-kratos/gateway/api/gateway/middleware/circuitbreaker/v1"
-	"github.com/go-kratos/gateway/client"
-	"github.com/go-kratos/gateway/middleware"
-	"github.com/go-kratos/gateway/proxy/condition"
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/exp/rand"
@@ -39,14 +39,12 @@ func SetBuildContext(buildContext *client.BuildContext) {
 	clientBuildContext.Store(buildContext)
 }
 
-var (
-	_metricDeniedTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "go",
-		Subsystem: "gateway",
-		Name:      "requests_circuit_breaker_denied_total",
-		Help:      "The total number of denied requests",
-	}, []string{"protocol", "method", "path", "service", "basePath"})
-)
+var _metricDeniedTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+	Namespace: "go",
+	Subsystem: "gateway",
+	Name:      "requests_circuit_breaker_denied_total",
+	Help:      "The total number of denied requests",
+}, []string{"protocol", "method", "path", "service", "basePath"})
 
 type ratioTrigger struct {
 	*v1.CircuitBreaker_Ratio

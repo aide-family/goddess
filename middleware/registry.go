@@ -4,19 +4,21 @@ import (
 	"errors"
 	"strings"
 
-	configv1 "github.com/go-kratos/gateway/api/gateway/config/v1"
+	configv1 "github.com/aide-family/goddess/pkg/config/v1"
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-var LOG = log.NewHelper(log.With(log.GetLogger(), "source", "middleware"))
-var globalRegistry = NewRegistry()
-var _failedMiddlewareCreate = prometheus.NewCounterVec(prometheus.CounterOpts{
-	Namespace: "go",
-	Subsystem: "gateway",
-	Name:      "failed_middleware_create",
-	Help:      "The total number of failed middleware create",
-}, []string{"name", "required"})
+var (
+	LOG                     = log.NewHelper(log.With(log.GetLogger(), "source", "middleware"))
+	globalRegistry          = NewRegistry()
+	_failedMiddlewareCreate = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "go",
+		Subsystem: "gateway",
+		Name:      "failed_middleware_create",
+		Help:      "The total number of failed middleware create",
+	}, []string{"name", "required"})
+)
 
 func init() {
 	prometheus.MustRegister(_failedMiddlewareCreate)

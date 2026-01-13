@@ -1,0 +1,101 @@
+syntax = "proto3";
+
+package goddess.api.v1;
+
+import "google/api/annotations.proto";
+import "buf/validate/validate.proto";
+import "enum/enum.proto";
+
+option go_package = "github.com/aide-family/goddess/pkg/api/v1;v1";
+option java_multiple_files = true;
+option java_package = "goddess.api.v1";
+
+service User {
+	rpc UpdateUserStatus (UpdateUserStatusRequest) returns (UpdateUserStatusReply) {
+		option (google.api.http) = {
+			put: "/v1/user/{uid}/status"
+			body: "*"
+		};
+	}
+	rpc GetUser (GetUserRequest) returns (UserItem) {
+		option (google.api.http) = {
+			get: "/v1/user/{uid}"
+		};
+	}
+	rpc ListUser (ListUserRequest) returns (ListUserReply) {
+		option (google.api.http) = {
+			get: "/v1/users"
+		};
+	}
+	rpc SelectUser (SelectUserRequest) returns (SelectUserReply) {
+		option (google.api.http) = {
+			get: "/v1/users/select"
+		};
+	}
+}
+
+message UserItem {
+	int64 uid = 1;
+	string username = 2;
+	string nickname = 3;
+	string avatar = 4;
+	string email = 5;
+	string phone = 6;
+	string createdAt = 7;
+	string updatedAt = 8;
+	goddess.enum.GlobalStatus status = 9;
+}
+
+message UpdateUserStatusRequest {
+	int64 uid = 1 [(buf.validate.field).required = true];
+	goddess.enum.GlobalStatus status = 2 [(buf.validate.field).required = true, (buf.validate.field).cel = {
+		expression: "this in [goddess.enum.GlobalStatus.ENABLED, goddess.enum.GlobalStatus.DISABLED]",
+		message: "status must be in ['ENABLED', 'DISABLED']",
+	}];
+}
+message UpdateUserStatusReply {}
+
+message GetUserRequest {
+	int64 uid = 1 [(buf.validate.field).required = true];
+}
+
+message ListUserRequest {
+	int32 page = 1 [(buf.validate.field).required = true, (buf.validate.field).cel = {
+		expression: "this >= 1",
+		message: "page must be greater than or equal to 1",
+	}];
+	int32 pageSize = 2 [(buf.validate.field).required = true, (buf.validate.field).cel = {
+		expression: "this >= 1 && this <= 200",
+		message: "pageSize must be greater than or equal to 1 and less than or equal to 200",
+	}];
+	string keyword = 3 [(buf.validate.field).cel = {
+		expression: "this.size() <= 200",
+		message: "keyword must be less than or equal to 200",
+	}];
+	goddess.enum.GlobalStatus status = 4;
+}
+message ListUserReply {
+	int64 total = 1;
+	int32 page = 2;
+	int32 pageSize = 3;
+	repeated UserItem items = 4;
+}
+
+message SelectUserRequest {
+	string keyword = 1 [(buf.validate.field).cel = {
+		expression: "this.size() <= 200",
+		message: "keyword must be less than or equal to 200",
+	}];
+	int32 limit = 2 [(buf.validate.field).required = true, (buf.validate.field).cel = {
+		expression: "this >= 1 && this <= 100",
+		message: "limit must be greater than or equal to 1 and less than or equal to 100",
+	}];
+	int64 lastUID = 3;
+	goddess.enum.GlobalStatus status = 4;
+}
+message SelectUserReply {
+	repeated UserItem items = 1;
+	int64 total = 2;
+	int64 lastUID = 3;
+	bool hasMore = 4;
+}

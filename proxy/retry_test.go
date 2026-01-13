@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	config "github.com/go-kratos/gateway/api/gateway/config/v1"
+	config "github.com/aide-family/goddess/pkg/config/v1"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 

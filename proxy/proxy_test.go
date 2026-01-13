@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	config "github.com/go-kratos/gateway/api/gateway/config/v1"
-	"github.com/go-kratos/gateway/client"
-	"github.com/go-kratos/gateway/middleware"
-	"github.com/go-kratos/gateway/middleware/logging"
+	"github.com/aide-family/goddess/client"
+	"github.com/aide-family/goddess/middleware"
+	"github.com/aide-family/goddess/middleware/logging"
+	config "github.com/aide-family/goddess/pkg/config/v1"
 )
 
 type responseWriter struct {
@@ -232,7 +232,6 @@ func TestRetryBreaker(t *testing.T) {
 			t.FailNow()
 		}
 	})
-
 }
 
 func TestRecoverErrAbortHandler(t *testing.T) {
