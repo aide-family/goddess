@@ -8,15 +8,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/aide-family/goddess/client"
-	"github.com/aide-family/goddess/config"
-	configLoader "github.com/aide-family/goddess/config/config-loader"
-	"github.com/aide-family/goddess/discovery"
-	"github.com/aide-family/goddess/middleware"
-	"github.com/aide-family/goddess/proxy"
-	"github.com/aide-family/goddess/proxy/debug"
-	"github.com/aide-family/goddess/server"
-
 	_ "net/http/pprof"
 
 	_ "github.com/aide-family/goddess/discovery/consul"
@@ -35,6 +26,15 @@ import (
 	"github.com/go-kratos/kratos/v2/registry"
 	"github.com/go-kratos/kratos/v2/transport"
 	"golang.org/x/exp/rand"
+
+	"github.com/aide-family/goddess/client"
+	"github.com/aide-family/goddess/config"
+	configLoader "github.com/aide-family/goddess/config/config-loader"
+	"github.com/aide-family/goddess/discovery"
+	"github.com/aide-family/goddess/middleware"
+	"github.com/aide-family/goddess/proxy"
+	"github.com/aide-family/goddess/proxy/debug"
+	"github.com/aide-family/goddess/server"
 )
 
 var (
@@ -55,12 +55,14 @@ type sliceVar struct {
 func newSliceVar(defaultVal ...string) sliceVar {
 	return sliceVar{defaultVal: defaultVal}
 }
+
 func (s *sliceVar) Get() []string {
 	if len(s.val) <= 0 {
 		return s.defaultVal
 	}
 	return s.val
 }
+
 func (s *sliceVar) Set(val string) error {
 	s.val = append(s.val, val)
 	return nil

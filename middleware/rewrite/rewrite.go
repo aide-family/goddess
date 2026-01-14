@@ -5,12 +5,12 @@ import (
 	"path"
 	"strings"
 
-	config "github.com/aide-family/goddess/pkg/config/v1"
-	v1 "github.com/aide-family/goddess/pkg/middleware/rewrite/v1"
-
-	"github.com/aide-family/goddess/middleware"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+
+	"github.com/aide-family/goddess/middleware"
+	config "github.com/aide-family/goddess/pkg/config/v1"
+	v1 "github.com/aide-family/goddess/pkg/middleware/rewrite/v1"
 )
 
 func init() {

@@ -1,3 +1,4 @@
+// Package jwt is a middleware that validates JWT tokens.
 package jwt
 
 import (
@@ -5,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/aide-family/goddess/middleware"
@@ -28,6 +30,13 @@ func Middleware(c *config.Middleware) (middleware.Middleware, error) {
 			return nil, err
 		}
 	}
+	keyFunc := func(token *jwtv5.Token) (interface{}, error) {
+		return []byte(options.Secret), nil
+	}
+	parserOptions := []jwtv5.ParserOption{
+		jwtv5.WithValidMethods(options.Algorithms),
+		jwtv5.WithIssuer(options.Issuer),
+	}
 	return func(next http.RoundTripper) http.RoundTripper {
 		return middleware.RoundTripperFunc(func(req *http.Request) (*http.Response, error) {
 			auths := strings.SplitN(req.Header.Get("Authorization"), " ", 2)
@@ -35,17 +44,20 @@ func Middleware(c *config.Middleware) (middleware.Middleware, error) {
 				return newForbiddenResponse(merr.ErrorForbidden("invalid token 0"))
 			}
 			jwtToken := auths[1]
-			token, err := jwtv5.Parse(jwtToken, func(token *jwtv5.Token) (interface{}, error) {
-				return []byte(options.Secret), nil
-			}, jwtv5.WithValidMethods(options.Algorithms), jwtv5.WithIssuer(options.Issuer))
+			token, err := jwtv5.ParseWithClaims(jwtToken, &JwtClaims{}, keyFunc, parserOptions...)
 			if err != nil {
 				return newForbiddenResponse(merr.ErrorForbidden("invalid token 1"))
 			}
 			if !token.Valid {
 				return newForbiddenResponse(merr.ErrorForbidden("invalid token 2"))
 			}
+			jwtClaims, ok := token.Claims.(*JwtClaims)
+			if !ok {
+				return newForbiddenResponse(merr.ErrorForbidden("invalid token 3"))
+			}
+			req.Header.Set("X-User-ID", strconv.FormatInt(jwtClaims.UserID, 10))
+			req.Header.Set("X-User-Name", jwtClaims.Username)
 
-			// TODO: add user id to request context
 			return next.RoundTrip(req)
 		})
 	}, nil
