@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package goddess.middleware.namespace.v1;
+
+option go_package = "github.com/aide-family/goddess/pkg/middleware/namespace/v1";
+
+import "google/protobuf/duration.proto";
+
+message Namespace {
+    // Header key to extract namespace from request
+    string key = 1;
+    
+    // Validation mode: "whitelist", "api", or "endpoint"
+    // If specified, only the selected validation method will be used.
+    // If validation fails, the request will be rejected.
+    // If not specified, the system will automatically detect available validation methods
+    // with priority: whitelist > endpoint > api
+    string validationMode = 2;
+    
+    // Allowed namespace list (whitelist mode)
+    // If set, namespace must be in this list
+    repeated string allowedNamespaces = 3;
+    
+    // Validation API configuration (api mode)
+    ValidateApi validateApi = 4;
+
+    // If true, namespace is required
+    bool required = 5;
+}
+
+// ValidateApi configuration for external validation service
+message ValidateApi {
+    // API endpoint URL for namespace validation
+    // Example: "https://api.example.com/v1/namespace/validate"
+    string url = 1;
+    
+    // HTTP method (default: POST)
+    string method = 2;
+    
+    // Request timeout in seconds (default: 5)
+    google.protobuf.Duration timeout = 3;
+    
+    // Additional headers to send with validation request
+    map<string, string> headers = 4;
+    
+    // Request body template (optional)
+    // Can use {{ .namespace }} placeholder which will be replaced with actual namespace
+    string bodyTemplate = 5;
+    
+    // Expected success status codes (default: [200])
+    repeated int32 successStatusCodes = 6;
+}

@@ -39,15 +39,32 @@ endpoints:
         options:
           '@type': type.googleapis.com/goddess.middleware.rewrite.v1.Rewrite
 #          stripPrefix: /bbs
-  - name: jwt
-    options:
-      '@type': type.googleapis.com/goddess.middleware.jwt.v1.Jwt
-      secret: 'secret'
-      issuer: 'https://aide.family'
-      algorithms:
-        - RS256
-        - RS384
-        - RS512
+      - name: jwt
+        options:
+          '@type': type.googleapis.com/goddess.middleware.jwt.v1.Jwt
+          secret: 'secret'
+          issuer: 'https://aide.family'
+          algorithms:
+            - RS256
+            - RS384
+            - RS512
+      - name: namespace
+        options:
+          '@type': type.googleapis.com/goddess.middleware.namespace.v1.Namespace
+          # validationMode: 'whitelist'
+          allowedNamespaces:
+            - 'test'
+          validateApi:
+            url: 'http://localhost:8000/v1/namespace/validate'
+            method: 'POST'
+            timeout: 10s
+            headers:
+              'Content-Type': 'application/json'
+              'Authorization': 'Bearer {{ .token }}'
+            bodyTemplate: '{"namespace": "{{ .namespace }}"}'
+            successStatusCodes:
+              - 200
+          required: true
   - path: /helloworld.v1.Greeter/*
     method: POST
     timeout: 1s
