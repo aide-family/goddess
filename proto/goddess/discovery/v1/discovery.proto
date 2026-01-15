@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package goddess.discovery.v1;
+
+option go_package = "github.com/aide-family/goddess/pkg/discovery/v1";
+
+import "google/protobuf/any.proto";
+import "google/protobuf/duration.proto";
+
+message Discovery {
+    string name = 1;
+    google.protobuf.Any options = 2;
+    string namespace = 3;
+    bool required = 4;
+}
+
+message ConsulDiscovery {
+    string address = 1;
+    string token = 2;
+}
+
+message KubernetesDiscovery {
+    string kubeconfig = 1;
+}
+
+message ETCDDiscovery {
+    string endpoints = 1;
+    string username = 2;
+    string password = 3;
+    google.protobuf.Duration dialTimeout = 4;
+}

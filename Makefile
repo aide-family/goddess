@@ -1,3 +1,4 @@
+$(shell git log -1 --format='%B' > description.txt)
 GOHOSTOS:=$(shell go env GOHOSTOS)
 VERSION=$(shell git describe --tags --always)
 BUILD_TIME=$(shell date '+%Y-%m-%dT%H:%M:%SZ')
@@ -55,12 +56,6 @@ api:
 	       --experimental_allow_proto3_optional \
 	       $(PROTO_FILES)
 
-.PHONY: wire
-# generate the wire files
-wire:
-	@echo "Generating wire files"
-	wire ./...
-
 .PHONY: vobj
 # generate the vobj files
 vobj:
@@ -78,3 +73,18 @@ gorm-gen:
 gorm-migrate:
 	@echo "Migrating gorm files"
 	go run ./cmd/gorm gorm migrate
+
+.PHONY: all
+# build the all binaries
+all: api
+
+.PHONY: build
+# build the goddess binary
+build: all
+	@echo "Building goddess"
+	@echo "VERSION: $(VERSION)"
+	@echo "BUILD_TIME: $(BUILD_TIME)"
+	@echo "AUTHOR: $(AUTHOR)"
+	@echo "AUTHOR_EMAIL: $(AUTHOR_EMAIL)"
+	@git log -1 --format='%B' > description.txt
+	go build -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) -X main.Author=$(AUTHOR) -X main.Email=$(AUTHOR_EMAIL) -X main.Repo=$(REPO)" -o bin/goddess main.go

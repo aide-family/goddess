@@ -1,6 +1,14 @@
 # This is a gateway config.
 name: helloworld
 version: v1
+discovery:
+  name: etcd
+  options:
+    '@type': type.googleapis.com/goddess.discovery.v1.ETCDDiscovery
+    endpoints: 'localhost:2379,localhost:2379'
+    username:
+    password:
+    dialTimeout: 10s
 middlewares:
   - name: tracing
     options:

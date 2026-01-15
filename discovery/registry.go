@@ -1,27 +1,29 @@
+// Package discovery is the registry for discovery.
 package discovery
 
 import (
 	"fmt"
-	"net/url"
 
 	"github.com/go-kratos/kratos/v2/registry"
+
+	discoveryv1 "github.com/aide-family/goddess/pkg/discovery/v1"
 )
 
 var globalRegistry = NewRegistry()
 
-type Factory func(dsn *url.URL) (registry.Discovery, error)
+type Factory func(discoveryConfig *discoveryv1.Discovery) (registry.Discovery, error)
 
-// Registry is the interface for callers to get registered middleware.
+// Registry is the interface for callers to get registered discovery.
 type Registry interface {
 	Register(name string, factory Factory)
-	Create(discoveryDSN string) (registry.Discovery, error)
+	Create(discoveryConfig *discoveryv1.Discovery) (registry.Discovery, error)
 }
 
 type discoveryRegistry struct {
 	discovery map[string]Factory
 }
 
-// NewRegistry returns a new middleware registry.
+// NewRegistry returns a new discovery registry.
 func NewRegistry() Registry {
 	return &discoveryRegistry{
 		discovery: map[string]Factory{},
@@ -32,22 +34,19 @@ func (d *discoveryRegistry) Register(name string, factory Factory) {
 	d.discovery[name] = factory
 }
 
-func (d *discoveryRegistry) Create(discoveryDSN string) (registry.Discovery, error) {
-	if discoveryDSN == "" {
-		return nil, fmt.Errorf("discoveryDSN is empty")
+func (d *discoveryRegistry) Create(discoveryConfig *discoveryv1.Discovery) (registry.Discovery, error) {
+	if discoveryConfig == nil {
+		return nil, nil
 	}
-
-	dsn, err := url.Parse(discoveryDSN)
-	if err != nil {
-		return nil, fmt.Errorf("parse discoveryDSN error: %s", err)
+	if discoveryConfig.Required && discoveryConfig.Name == "" {
+		return nil, fmt.Errorf("discovery is required")
 	}
-
-	factory, ok := d.discovery[dsn.Scheme]
+	factory, ok := d.discovery[discoveryConfig.Name]
 	if !ok {
-		return nil, fmt.Errorf("discovery %s has not been registered", dsn.Scheme)
+		return nil, fmt.Errorf("discovery %s has not been registered", discoveryConfig.Name)
 	}
 
-	impl, err := factory(dsn)
+	impl, err := factory(discoveryConfig)
 	if err != nil {
 		return nil, fmt.Errorf("create discovery error: %s", err)
 	}
@@ -60,6 +59,6 @@ func Register(name string, factory Factory) {
 }
 
 // Create instantiates a discovery based on `discoveryDSN`.
-func Create(discoveryDSN string) (registry.Discovery, error) {
-	return globalRegistry.Create(discoveryDSN)
+func Create(discoveryConfig *discoveryv1.Discovery) (registry.Discovery, error) {
+	return globalRegistry.Create(discoveryConfig)
 }

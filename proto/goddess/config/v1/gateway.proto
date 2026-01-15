@@ -6,6 +6,7 @@ option go_package = "github.com/aide-family/goddess/pkg/config/v1";
 
 import "google/protobuf/any.proto";
 import "google/protobuf/duration.proto";
+import "discovery/v1/discovery.proto";
 
 message Gateway {
     string name = 1;
@@ -14,6 +15,7 @@ message Gateway {
     repeated Endpoint endpoints = 4;
     repeated Middleware middlewares = 5;
     map<string, TLS> tls_store = 6;
+    discovery.v1.Discovery discovery = 7;
 }
 
 message TLS {
