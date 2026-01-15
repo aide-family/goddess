@@ -11,6 +11,7 @@ import (
 	klog "github.com/go-kratos/kratos/v2/log"
 
 	"github.com/aide-family/goddess/cmd"
+	"github.com/aide-family/goddess/cmd/control"
 	"github.com/aide-family/goddess/cmd/gateway"
 	"github.com/aide-family/goddess/cmd/version"
 	"github.com/aide-family/goddess/pkg/merr"
@@ -44,6 +45,7 @@ func main() {
 	children := []*cobra.Command{
 		version.NewCmd(),
 		gateway.NewCmd(),
+		control.NewCmd(),
 	}
 	cmd.Execute(cmd.NewCmd(), children...)
 }
