@@ -1,3 +1,4 @@
+// Package config is a config loader for the gateway.
 package config
 
 import (

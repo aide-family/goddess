@@ -1,3 +1,4 @@
+// Package ctrlloader is a config loader for the control service.
 package ctrlloader
 
 import (
